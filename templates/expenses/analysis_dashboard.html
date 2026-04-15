@@ -1,0 +1,396 @@
+{% extends 'expenses/base.html' %}
+{% load static %}
+{% load analysis_filters %} 
+
+{% block title %}Spending Analysis - FinanceTracker{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto">
+    <!-- Header -->
+    <div class="flex justify-between items-center mb-6">
+        <div>
+            <h1 class="text-2xl font-semibold">📊 Spending Analysis</h1>
+            <p class="text-gray-500">Understand your spending patterns and trends</p>
+            <p class="text-gray-500">Last updated: {% now "F j, Y H:i" %}</p>
+        </div>
+        <div class="flex gap-3">
+            <button onclick="exportReport()" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg flex items-center">
+                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+                </svg>
+                Export Report
+            </button>
+            <button onclick="refreshData()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg">
+                🔄 Refresh
+            </button>
+        </div>
+    </div>
+    
+
+    <!-- Key Metrics -->
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+        <div class="bg-white p-5 rounded-xl shadow border-l-4 border-blue-500">
+            <p class="text-gray-500 text-sm">Total Spent (YTD)</p>
+            <p class="text-2xl font-bold">₹{{ yearly_comparison.current_total }}</p>
+            {% if yearly_comparison.percent_change != 0 %}
+            <p class="text-sm {% if yearly_comparison.percent_change > 0 %}text-red-500{% else %}text-green-500{% endif %}">
+                {{ yearly_comparison.percent_change }}% vs last year
+            </p>
+            {% endif %}
+        </div>
+        
+        <div class="bg-white p-5 rounded-xl shadow border-l-4 border-green-500">
+            <p class="text-gray-500 text-sm">Avg Monthly</p>
+            <p class="text-2xl font-bold">₹{{ moving_avg.Total.current|default:0|floatformat:0 }}</p>
+            <p class="text-sm text-gray-500">3-month average</p>
+        </div>
+        
+        <div class="bg-white p-5 rounded-xl shadow border-l-4 border-purple-500">
+            <p class="text-gray-500 text-sm">Categories</p>
+            <p class="text-2xl font-bold">{{ distribution|length }}</p>
+            <p class="text-sm text-gray-500">Active this month</p>
+        </div>
+        
+        <div class="bg-white p-5 rounded-xl shadow border-l-4 border-orange-500">
+            <p class="text-gray-500 text-sm">Anomalies</p>
+            <p class="text-2xl font-bold">{{ anomalies|length }}</p>
+            <p class="text-sm text-gray-500">Unusual spending</p>
+        </div>
+    </div>
+
+    <!-- Insights Cards -->
+    {% if insights %}
+    <div class="mb-6">
+        <h2 class="text-lg font-semibold mb-3">💡 Smart Insights</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {% for insight in insights %}
+            <div class="bg-{% if insight.priority == 'high' %}red{% elif insight.priority == 'medium' %}yellow{% else %}blue{% endif %}-50 
+                        border-l-4 border-{% if insight.priority == 'high' %}red{% elif insight.priority == 'medium' %}yellow{% else %}blue{% endif %}-500 
+                        p-4 rounded-lg shadow">
+                <div class="flex items-start">
+                    <span class="text-2xl mr-3">{{ insight.icon }}</span>
+                    <div>
+                        <p class="font-medium">{{ insight.message }}</p>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+    <!-- Date Range Filter -->
+<div class="bg-white p-4 rounded-xl shadow mb-6">
+    <div class="flex flex-wrap items-center gap-4">
+        <div>
+            <label class="block text-sm text-gray-600 mb-1">From</label>
+            <input type="month" id="filterFrom" class="border rounded px-3 py-2 text-sm">
+        </div>
+        <div>
+            <label class="block text-sm text-gray-600 mb-1">To</label>
+            <input type="month" id="filterTo" class="border rounded px-3 py-2 text-sm">
+        </div>
+        <div class="flex items-end gap-2">
+            <button onclick="applyDateFilter()" class="bg-blue-600 text-white px-4 py-2 rounded text-sm">
+                Apply Filter
+            </button>
+            <button onclick="resetFilter()" class="bg-gray-300 text-gray-700 px-4 py-2 rounded text-sm">
+                Reset
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+function applyDateFilter() {
+    const from = document.getElementById('filterFrom').value;
+    const to = document.getElementById('filterTo').value;
+    // Add filter logic here
+    loadMonthlyChart(from, to);
+}
+
+function resetFilter() {
+    document.getElementById('filterFrom').value = '';
+    document.getElementById('filterTo').value = '';
+    loadMonthlyChart();
+}
+</script>
+
+    <!-- Charts Row -->
+    <!-- Charts Row - Fixed height -->
+     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+    <!-- Monthly Trend Chart - Fixed height -->
+    <div class="lg:col-span-2 bg-white p-4 rounded-xl shadow">
+        <h3 class="font-semibold mb-4">📈 Monthly Spending Trends</h3>
+        <div style="height: 300px; position: relative;">
+            <canvas id="monthlyTrendChart"></canvas>
+        </div>
+    </div>
+    
+    <!-- Category Distribution - Fixed height -->
+    <div class="bg-white p-4 rounded-xl shadow">
+        <h3 class="font-semibold mb-4">🥧 Category Distribution</h3>
+        <div style="height: 300px; position: relative;">
+            <canvas id="categoryPieChart"></canvas>
+        </div>
+    </div>
+</div>
+
+    <!-- Category Breakdown -->
+    <div class="bg-white p-4 rounded-xl shadow mb-6">
+        <h3 class="font-semibold mb-4">📋 Category Breakdown (This Month)</h3>
+        <div class="overflow-x-auto">
+            <table class="min-w-full">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Category</th>
+                        <th class="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">Amount</th>
+                        <th class="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">% of Total</th>
+                        <th class="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">vs Last Month</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-200">
+                    {% for category, data in distribution.items %}
+                    <tr class="hover:bg-gray-50">
+                        <td class="px-4 py-3">
+                            <span class="font-medium">{{ category }}</span>
+                        </td>
+                        <td class="px-4 py-3 text-right font-medium">₹{{ data.amount }}</td>
+                        <td class="px-4 py-3 text-right">
+                            <div class="flex items-center justify-end">
+                                <span class="mr-2">{{ data.percentage }}%</span>
+                                <div class="w-16 bg-gray-200 rounded-full h-2">
+                                    <div class="bg-blue-500 h-2 rounded-full" style="width: {{ data.percentage }}%"></div>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="px-4 py-3 text-right">
+                            {% with change=trends|get_item:category %}
+                                {% if change %}
+                                    <span class="{% if change.change > 0 %}text-red-500{% elif change.change < 0 %}text-green-500{% endif %}">
+                                        {% if change.change > 0 %}↑{% elif change.change < 0 %}↓{% endif %}
+                                        {{ change.change|floatformat:1 }}%
+                                    </span>
+                                {% else %}
+                                    <span class="text-gray-400">-</span>
+                                {% endif %}
+                            {% endwith %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="4" class="px-4 py-8 text-center text-gray-500">
+                            No expenses this month
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Anomalies Section -->
+    {% if anomalies %}
+    <div class="bg-white p-4 rounded-xl shadow">
+        <h3 class="font-semibold mb-4">⚠️ Detected Anomalies</h3>
+        <div class="space-y-3">
+            {% for anomaly in anomalies %}
+            <div class="p-3 bg-{% if anomaly.severity == 'high' %}red{% else %}yellow{% endif %}-50 rounded-lg border border-{% if anomaly.severity == 'high' %}red{% else %}yellow{% endif %}-200">
+                <div class="flex justify-between items-center">
+                    <div>
+                        <span class="font-medium">{{ anomaly.category }}</span>
+                        <span class="text-sm text-gray-600 ml-2">{{ anomaly.month }}</span>
+                    </div>
+                    <div class="text-right">
+                        <span class="font-bold">₹{{ anomaly.amount }}</span>
+                        <span class="text-sm text-gray-500 ml-2">({{ anomaly.z_score }}σ deviation)</span>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Chart.js Scripts -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+let monthlyChart, pieChart;
+
+document.addEventListener('DOMContentLoaded', function() {
+    loadMonthlyChart();
+    loadPieChart();
+});
+
+function loadMonthlyChart() {
+    fetch('{% url "expenses:analysis_data_api" %}')
+        .then(response => response.json())
+        .then(data => {
+            if (data.error) {
+                console.error(data.error);
+                return;
+            }
+            
+            const ctx = document.getElementById('monthlyTrendChart').getContext('2d');
+            
+            if (monthlyChart) {
+                monthlyChart.destroy();
+            }
+            
+            monthlyChart = new Chart(ctx, {
+    type: 'line',
+    data: data,
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,  // Important!
+        interaction: {
+            mode: 'index',
+            intersect: false,
+        },
+        plugins: {
+            legend: {
+                position: 'top',
+                labels: {
+                    boxWidth: 12,
+                    font: { size: 10 },
+                    padding: 10
+                }
+            },
+            tooltip: {
+                callbacks: {
+                    label: function(context) {
+                        let label = context.dataset.label || '';
+                        if (label) {
+                            label += ': ';
+                        }
+                        if (context.parsed.y !== null) {
+                            label += '₹' + context.parsed.y.toFixed(2);
+                        }
+                        return label;
+                    }
+                }
+            }
+        },
+        scales: {
+            y: {
+                beginAtZero: true,
+                ticks: {
+                    callback: function(value) {
+                        return '₹' + value;
+                    },
+                    maxTicksLimit: 8  // Limit number of ticks
+                }
+            },
+            x: {
+                ticks: {
+                    maxRotation: 45,
+                    minRotation: 45,
+                    font: { size: 10 }
+                }
+            }
+        },
+        layout: {
+            padding: {
+                top: 10,
+                bottom: 20,
+                left: 10,
+                right: 10
+            }
+        }
+    }
+})
+        });
+}
+
+function loadPieChart() {
+    fetch('{% url "expenses:category_pie_data_api" %}')
+        .then(response => response.json())
+        .then(data => {
+            if (data.error) {
+                console.error(data.error);
+                return;
+            }
+            
+            const ctx = document.getElementById('categoryPieChart').getContext('2d');
+            
+            if (pieChart) {
+                pieChart.destroy();
+            }
+            
+            pieChart = new Chart(ctx, {
+    type: 'pie',
+    data: data,
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,  // Important!
+        plugins: {
+            legend: {
+                position: 'right',
+                labels: {
+                    boxWidth: 10,
+                    font: { size: 10 },
+                    padding: 10
+                }
+            },
+            tooltip: {
+                callbacks: {
+                    label: function(context) {
+                        let label = context.label || '';
+                        let value = context.raw || 0;
+                        let total = context.dataset.data.reduce((a, b) => a + b, 0);
+                        let percentage = ((value / total) * 100).toFixed(1);
+                        return `${label}: ₹${value} (${percentage}%)`;
+                    }
+                }
+            }
+        },
+        layout: {
+            padding: 10
+        }
+    }
+});
+        });
+}
+
+function exportReport() {
+    window.location.href = '{% url "expenses:export_analysis" %}';
+}
+
+function refreshData() {
+    loadMonthlyChart();
+    loadPieChart();
+    
+    // Show refresh animation
+    const refreshBtn = event.target;
+    refreshBtn.innerHTML = '⏳ Refreshing...';
+    refreshBtn.disabled = true;
+    
+    setTimeout(() => {
+        window.location.reload();
+    }, 1000);
+}
+
+// Custom template filter for dictionary access
+window.get_item = function(dict, key) {
+    return dict ? dict[key] : null;
+};
+</script>
+
+<style>
+/* Custom scrollbar for tables */
+.overflow-x-auto::-webkit-scrollbar {
+    height: 6px;
+}
+.overflow-x-auto::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 3px;
+}
+.overflow-x-auto::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 3px;
+}
+.overflow-x-auto::-webkit-scrollbar-thumb:hover {
+    background: #555;
+}
+</style>
+{% endblock %}

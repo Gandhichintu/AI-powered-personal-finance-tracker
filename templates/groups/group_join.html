@@ -1,0 +1,47 @@
+{% extends 'expenses/base.html' %}
+{% block content %}
+<div class="max-w-md mx-auto bg-white p-6 rounded shadow">
+    <h2 class="text-2xl font-semibold mb-4">Join a Group</h2>
+    
+    <p class="text-gray-600 mb-4">Enter the invite code shared by the group creator</p>
+    
+    <form method="post">
+        {% csrf_token %}
+        <div class="mb-4">
+            <label class="block text-gray-700 text-sm font-bold mb-2" for="invite_code">
+                Invite Code
+            </label>
+            <input 
+                type="text" 
+                name="invite_code" 
+                id="invite_code"
+                class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                placeholder="e.g., 123e4567-e89b-12d3-a456-426614174000"
+                required
+            >
+            <p class="text-sm text-gray-500 mt-1">This is a UUID code like: 550e8400-e29b-41d4-a716-446655440000</p>
+        </div>
+        
+        <div class="flex items-center justify-between">
+            <button 
+                type="submit" 
+                class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
+            >
+                Join Group
+            </button>
+            <a 
+                href="{% url 'groups:group_list' %}" 
+                class="inline-block align-baseline font-bold text-sm text-gray-500 hover:text-gray-800"
+            >
+                Cancel
+            </a>
+        </div>
+    </form>
+    
+    {% if error %}
+    <div class="mt-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
+        Invalid invite code. Please check and try again.
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,159 @@
+{% extends 'expenses/base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto bg-white p-6 rounded shadow">
+    <h2 class="text-2xl font-bold mb-6">🎤 Voice Input Test</h2>
+    
+    <div class="mb-6">
+        <p class="text-gray-600 mb-4">Click the button below and speak an expense:</p>
+        <p class="text-sm text-gray-500 mb-2">Try saying:</p>
+        <ul class="text-sm text-gray-500 list-disc list-inside mb-4">
+            <li>"Spent 500 rupees on groceries"</li>
+            <li>"Paid 200 for taxi"</li>
+            <li>"Lunch cost 350 rupees"</li>
+        </ul>
+    </div>
+
+    <button id="mic-btn" class="bg-blue-500 hover:bg-blue-600 text-white px-6 py-3 rounded-lg text-lg w-full">
+        🎤 Start Speaking
+    </button>
+    
+    <div id="speech-status" class="mt-4 p-4 border rounded bg-gray-50">
+        <p class="text-gray-600">Status: Ready to listen</p>
+    </div>
+
+    <div id="debug-info" class="mt-4 p-4 border rounded bg-yellow-50 hidden">
+        <h3 class="font-semibold">Debug Information:</h3>
+        <pre id="debug-content" class="text-sm"></pre>
+    </div>
+</div>
+
+<script>
+// Simple test version without class
+let recognition = null;
+let isListening = false;
+
+document.getElementById('mic-btn').addEventListener('click', function() {
+    if (!isListening) {
+        startListening();
+    } else {
+        stopListening();
+    }
+});
+
+function startListening() {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    
+    if (!SpeechRecognition) {
+        updateStatus('error', 'Speech Recognition not supported in this browser');
+        return;
+    }
+
+    recognition = new SpeechRecognition();
+    recognition.continuous = false;
+    recognition.interimResults = false;
+    recognition.lang = 'en-IN';
+
+    recognition.onstart = function() {
+        isListening = true;
+        updateStatus('listening', '🎤 Listening... Speak now');
+        document.getElementById('mic-btn').textContent = '🛑 Stop Listening';
+        document.getElementById('mic-btn').classList.add('bg-red-500');
+    };
+
+    recognition.onresult = function(event) {
+        const transcript = event.results[0][0].transcript;
+        updateStatus('processing', `Processing: "${transcript}"`);
+        sendToServer(transcript);
+    };
+
+    recognition.onerror = function(event) {
+        updateStatus('error', `Error: ${event.error}`);
+        isListening = false;
+        resetButton();
+    };
+
+    recognition.onend = function() {
+        isListening = false;
+        resetButton();
+    };
+
+    try {
+        recognition.start();
+    } catch (error) {
+        updateStatus('error', `Failed to start: ${error}`);
+    }
+}
+
+function stopListening() {
+    if (recognition && isListening) {
+        recognition.stop();
+    }
+}
+
+function resetButton() {
+    document.getElementById('mic-btn').textContent = '🎤 Start Speaking';
+    document.getElementById('mic-btn').classList.remove('bg-red-500');
+    document.getElementById('mic-btn').classList.add('bg-blue-500');
+}
+
+function updateStatus(type, message) {
+    const statusDiv = document.getElementById('speech-status');
+    const colors = {
+        listening: 'bg-blue-100 border-blue-300 text-blue-700',
+        processing: 'bg-yellow-100 border-yellow-300 text-yellow-700',
+        error: 'bg-red-100 border-red-300 text-red-700',
+        success: 'bg-green-100 border-green-300 text-green-700'
+    };
+    
+    statusDiv.innerHTML = `<p>Status: ${message}</p>`;
+    statusDiv.className = `mt-4 p-4 border rounded ${colors[type] || 'bg-gray-50'}`;
+}
+
+function sendToServer(transcript) {
+    console.log('Sending to server:', transcript);
+    
+    fetch('/expenses/voice-input/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCSRFToken(),
+        },
+        body: JSON.stringify({ speech_text: transcript })
+    })
+    .then(response => {
+        console.log('Response status:', response.status);
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.json();
+    })
+    .then(data => {
+        console.log('Server response:', data);
+        if (data.success) {
+            updateStatus('success', `✅ Success! ${data.message}`);
+            if (data.expense_created) {
+                setTimeout(() => {
+                    window.location.href = '/expenses/';
+                }, 2000);
+            }
+        } else {
+            updateStatus('error', `❌ Error: ${data.error}`);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        updateStatus('error', `❌ Network error: ${error.message}`);
+    });
+}
+
+function getCSRFToken() {
+    const cookieValue = document.cookie
+        .split('; ')
+        .find(row => row.startsWith('csrftoken='))
+        ?.split('=')[1];
+    return cookieValue;
+}
+</script>
+{% endblock %}

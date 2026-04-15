@@ -1,0 +1,61 @@
+{% extends 'expenses/base.html' %}
+{% block title %}Expenses{% endblock %}
+{% block content %}
+  <div class="flex justify-between items-center mb-4">
+    <h2 class="text-2xl font-semibold">Your Expenses</h2>
+    <a href="{% url 'expenses:expense_add' %}" class="bg-blue-600 text-white px-4 py-2 rounded">Add</a>
+  </div>
+
+  <div class="bg-white rounded shadow">
+    <table class="min-w-full divide-y">
+      <thead class="bg-gray-50">
+        <tr>
+          <th class="px-4 py-2 text-left">Date</th>
+          <th class="px-4 py-2 text-left">Vendor</th>
+          <th class="px-4 py-2 text-left">Category</th>
+          <th class="px-4 py-2 text-right">Amount</th>
+          <th class="px-4 py-2 text-right">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for e in expenses %}
+        <tr class="border-t">
+          <td class="px-4 py-2">{{ e.date }}</td>
+          <td class="px-4 py-2">{{ e.vendor }}</td>
+          <td class="px-4 py-2">{{ e.category }}
+            {% if e.is_anomaly %}
+        <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ml-2 
+            {% if e.anomaly_score > 3 %}bg-red-100 text-red-800{% else %}bg-yellow-100 text-yellow-800{% endif %}">
+            🚨 Anomaly
+        </span>
+        {% endif %}
+          </td>
+          <td class="px-4 py-2 text-right">₹{{ e.amount }}</td>
+          <td class="px-4 py-2 text-right">
+            <a href="{% url 'expenses:expense_edit' e.pk %}" class="mr-2 text-blue-600">Edit</a>
+            <a href="{% url 'expenses:expense_delete' e.pk %}" class="text-red-600">Delete</a>
+            
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td class="p-4" colspan="5">No expenses yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="mt-4">
+    {% if is_paginated %}
+      <div class="flex justify-center space-x-2">
+        {% if page_obj.has_previous %}
+          <a href="?page={{ page_obj.previous_page_number }}" class="px-3 py-1 bg-white border rounded">Prev</a>
+        {% endif %}
+        <span class="px-3 py-1 bg-white border rounded">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+        {% if page_obj.has_next %}
+          <a href="?page={{ page_obj.next_page_number }}" class="px-3 py-1 bg-white border rounded">Next</a>
+        {% endif %}
+      </div>
+    {% endif %}
+  </div>
+  
+{% endblock %}

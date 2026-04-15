@@ -1,0 +1,150 @@
+{% extends 'expenses/base.html' %}
+{% block content %}
+<div class="max-w-4xl mx-auto bg-white p-6 rounded shadow">
+    <h2 class="text-xl font-semibold mb-4">Capture Receipt with Camera</h2>
+    
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div>
+            <div id="camera-container" class="border rounded overflow-hidden">
+                <video id="video" width="100%" autoplay playsinline></video>
+                <canvas id="canvas" class="hidden"></canvas>
+            </div>
+            <div class="mt-4 flex gap-2">
+                <button id="capture-btn" class="bg-blue-600 text-white px-4 py-2 rounded flex-1">
+                    📷 Capture Receipt
+                </button>
+                <button id="retake-btn" class="bg-gray-600 text-white px-4 py-2 rounded hidden">
+                    🔄 Retake
+                </button>
+            </div>
+        </div>
+        
+        <div>
+            <div id="preview-container" class="hidden">
+                <h3 class="font-semibold mb-2">Captured Image</h3>
+                <img id="preview" class="border rounded max-w-full">
+                <div class="mt-4 flex gap-2">
+                    <button id="upload-btn" class="bg-green-600 text-white px-4 py-2 rounded flex-1">
+                        ✅ Upload & Process
+                    </button>
+                </div>
+            </div>
+            
+            <div id="result" class="mt-4 hidden"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+let stream = null;
+const video = document.getElementById('video');
+const canvas = document.getElementById('canvas');
+const preview = document.getElementById('preview');
+const captureBtn = document.getElementById('capture-btn');
+const retakeBtn = document.getElementById('retake-btn');
+const uploadBtn = document.getElementById('upload-btn');
+const previewContainer = document.getElementById('preview-container');
+const resultDiv = document.getElementById('result');
+
+// Start camera
+async function startCamera() {
+    try {
+        stream = await navigator.mediaDevices.getUserMedia({ 
+            video: { facingMode: 'environment' } // Use rear camera on mobile
+        });
+        video.srcObject = stream;
+    } catch (err) {
+        console.error('Error accessing camera:', err);
+        resultDiv.innerHTML = `<div class="text-red-600">Error accessing camera: ${err.message}</div>`;
+        resultDiv.classList.remove('hidden');
+    }
+}
+
+// Capture image
+captureBtn.addEventListener('click', () => {
+    const context = canvas.getContext('2d');
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    context.drawImage(video, 0, 0);
+    
+    // Show preview
+    preview.src = canvas.toDataURL('image/jpeg');
+    previewContainer.classList.remove('hidden');
+    captureBtn.classList.add('hidden');
+    retakeBtn.classList.remove('hidden');
+});
+
+// Retake photo
+retakeBtn.addEventListener('click', () => {
+    previewContainer.classList.add('hidden');
+    captureBtn.classList.remove('hidden');
+    retakeBtn.classList.add('hidden');
+    resultDiv.classList.add('hidden');
+});
+
+// Upload and process
+uploadBtn.addEventListener('click', async () => {
+    const imageData = canvas.toDataURL('image/jpeg');
+    
+    uploadBtn.disabled = true;
+    uploadBtn.textContent = 'Processing...';
+    
+    try {
+        const response = await fetch('{% url "expenses:capture_image" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: `image=${encodeURIComponent(imageData)}`
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            if (data.expense_created) {
+                resultDiv.innerHTML = `
+                    <div class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded">
+                        ✅ Success! Expense of ₹${data.amount} created.
+                        <a href="{% url 'expenses:expense_list' %}" class="underline ml-2">View Expenses</a>
+                    </div>
+                `;
+            } else {
+                resultDiv.innerHTML = `
+                    <div class="bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded">
+                        ⚠️ ${data.message}
+                        <a href="{% url 'expenses:receipt_list' %}" class="underline ml-2">View Receipts</a>
+                    </div>
+                `;
+            }
+        } else {
+            resultDiv.innerHTML = `
+                <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+                    ❌ Error: ${data.error}
+                </div>
+            `;
+        }
+    } catch (error) {
+        resultDiv.innerHTML = `
+            <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+                ❌ Network error: ${error.message}
+            </div>
+        `;
+    } finally {
+        resultDiv.classList.remove('hidden');
+        uploadBtn.disabled = false;
+        uploadBtn.textContent = '✅ Upload & Process';
+    }
+});
+
+// Start camera when page loads
+startCamera();
+
+// Clean up when leaving page
+window.addEventListener('beforeunload', () => {
+    if (stream) {
+        stream.getTracks().forEach(track => track.stop());
+    }
+});
+</script>
+{% endblock %}

@@ -1,0 +1,10 @@
+Bills
+Education
+Entertainment
+Food
+Fuel
+Groceries
+Healthcare
+Investment
+Shopping
+Travel

@@ -1,0 +1,91 @@
+{% extends 'expenses/base.html' %}
+{% load static %}
+
+{% block title %}Profile - FinanceTracker{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto">
+    <div class="bg-white rounded-xl shadow overflow-hidden">
+        <div class="px-6 py-4 bg-gray-50 border-b">
+            <h2 class="text-xl font-semibold">Your Profile</h2>
+            <p class="text-gray-500 text-sm">Manage your account information</p>
+        </div>
+        
+        <div class="p-6">
+            <form method="post">
+                {% csrf_token %}
+                
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-gray-700 font-medium mb-2">Username</label>
+                        <input type="text" name="username" value="{{ form.username.value }}" class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:border-purple-500" required>
+                        {% if form.username.errors %}
+                        <p class="text-red-500 text-sm mt-1">{{ form.username.errors.0 }}</p>
+                        {% endif %}
+                    </div>
+                    
+                    <div>
+                        <label class="block text-gray-700 font-medium mb-2">Email</label>
+                        <input type="email" name="email" value="{{ form.email.value }}" class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:border-purple-500" required>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-gray-700 font-medium mb-2">First Name</label>
+                        <input type="text" name="first_name" value="{{ form.first_name.value }}" class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:border-purple-500" required>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-gray-700 font-medium mb-2">Last Name</label>
+                        <input type="text" name="last_name" value="{{ form.last_name.value }}" class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:border-purple-500">
+                    </div>
+                </div>
+                
+                <div class="flex gap-4 mt-6">
+                    <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg">
+                        Save Changes
+                    </button>
+                    <a href="{% url 'expenses:dashboard' %}" class="bg-gray-300 hover:bg-gray-400 text-gray-800 px-6 py-2 rounded-lg">
+                        Cancel
+                    </a>
+                </div>
+            </form>
+        </div>
+        
+        <div class="px-6 py-4 bg-gray-50 border-t">
+            <h3 class="text-lg font-semibold text-red-600 mb-2">Danger Zone</h3>
+            <p class="text-sm text-gray-600 mb-3">Once you delete your account, all your data will be permanently removed.</p>
+            <button onclick="openDeleteModal()" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm">
+                Delete Account
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Account Modal -->
+<div id="deleteModal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center z-50">
+    <div class="bg-white rounded-xl max-w-md w-full p-6">
+        <h3 class="text-xl font-semibold mb-4">Delete Account</h3>
+        <p class="text-gray-600 mb-4">Are you sure you want to delete your account? This action cannot be undone.</p>
+        <form method="post" action="{% url 'accounts:delete_account' %}">
+            {% csrf_token %}
+            <div class="flex gap-3">
+                <button type="button" onclick="closeDeleteModal()" class="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 px-4 py-2 rounded-lg">
+                    Cancel
+                </button>
+                <button type="submit" class="flex-1 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg">
+                    Yes, Delete My Account
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function openDeleteModal() {
+    document.getElementById('deleteModal').classList.remove('hidden');
+}
+function closeDeleteModal() {
+    document.getElementById('deleteModal').classList.add('hidden');
+}
+</script>
+{% endblock %}

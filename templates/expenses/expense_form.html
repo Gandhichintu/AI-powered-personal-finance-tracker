@@ -1,0 +1,284 @@
+{% extends 'expenses/base.html' %}
+{% load static %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="bg-white p-6 rounded shadow max-w-2xl mx-auto">
+    <h2 class="text-xl font-semibold mb-4">{{ title }}</h2>
+    
+    <!-- ML Status Banner -->
+    {% if ml_available %}
+    <div class="mb-4 p-3 bg-blue-50 border border-blue-200 rounded text-sm text-blue-700">
+        <span class="font-medium">🤖 ML Auto-Categorization Active</span> - Categories will be auto-assigned based on description
+    </div>
+    {% endif %}
+    
+    <!-- ML Preview Banner (shown when ML suggests a category) -->
+    {% if request.session.ml_suggestion %}
+    <div class="bg-green-50 border-l-4 border-green-500 p-4 mb-4">
+        <div class="flex items-center">
+            <div class="flex-shrink-0">
+                <svg class="h-5 w-5 text-green-400" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"></path>
+                </svg>
+            </div>
+            <div class="ml-3 flex-1">
+                <p class="text-sm text-green-700">
+                    <strong>🤖 ML Suggests:</strong> 
+                    Category: <span class="font-bold">{{ request.session.ml_suggestion.category }}</span> 
+                    ({{ request.session.ml_suggestion.confidence|floatformat:1 }}% confidence)
+                </p>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+    
+    <form method="post" id="expenseForm">
+        {% csrf_token %}
+        {{ form.non_field_errors }}
+        
+        <div class="grid grid-cols-1 gap-4">
+            <div>
+                <label class="block text-gray-700 text-sm font-bold mb-2" for="{{ form.description.id_for_label }}">
+                    Description <span class="text-red-500">*</span>
+                </label>
+                {{ form.description }}
+                {% if form.description.errors %}
+                <p class="text-red-500 text-xs mt-1">{{ form.description.errors.0 }}</p>
+                {% endif %}
+                <p class="text-gray-500 text-xs mt-1">ML will use this to suggest category</p>
+            </div>
+            
+            <div>
+                <label class="block text-gray-700 text-sm font-bold mb-2" for="{{ form.amount.id_for_label }}">
+                    Amount (₹) <span class="text-red-500">*</span>
+                </label>
+                {{ form.amount }}
+                {{ form.amount.errors }}
+            </div>
+            
+            <div>
+                <label class="block text-gray-700 text-sm font-bold mb-2" for="{{ form.date.id_for_label }}">
+                    Date <span class="text-red-500">*</span>
+                </label>
+                {{ form.date }}
+                {{ form.date.errors }}
+            </div>
+            
+            <div>
+                <label class="block text-gray-700 text-sm font-bold mb-2" for="{{ form.vendor.id_for_label }}">
+                    Vendor
+                </label>
+                {{ form.vendor }}
+                {{ form.vendor.errors }}
+            </div>
+            
+            <div>
+                <label class="block text-gray-700 text-sm font-bold mb-2" for="{{ form.category.id_for_label }}">
+                    Category
+                </label>
+                <div class="relative">
+                    {{ form.category }}
+                    <!-- ML Indicator -->
+                    <div id="mlIndicator" class="hidden absolute right-2 top-2">
+                        <span class="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded">ML</span>
+                    </div>
+                </div>
+                {{ form.category.errors }}
+                
+                <!-- ML Confidence Bar -->
+                <div id="mlConfidence" class="hidden mt-2">
+                    <div class="flex items-center">
+                        <span class="text-xs text-gray-500 mr-2">ML Confidence:</span>
+                        <div class="flex-1 bg-gray-200 rounded-full h-2">
+                            <div id="confidenceBar" class="bg-blue-500 h-2 rounded-full" style="width: 0%"></div>
+                        </div>
+                        <span id="confidenceText" class="text-xs text-gray-500 ml-2">0%</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="mt-6 flex gap-4">
+            <button type="submit" 
+                    class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">
+                Save Expense
+            </button>
+            <a href="{% url 'expenses:expense_list' %}" 
+               class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">
+                Cancel
+            </a>
+        </div>
+    </form>
+</div>
+<!-- Real-time ML Category Prediction -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const descriptionInput = document.querySelector('#id_description');
+    const categorySelect = document.querySelector('#id_category');
+    const mlIndicator = document.querySelector('#mlIndicator');
+    const mlConfidence = document.querySelector('#mlConfidence');
+    const confidenceBar = document.querySelector('#confidenceBar');
+    const confidenceText = document.querySelector('#confidenceText');
+    
+    if (!descriptionInput || !categorySelect) return;
+    
+    let timeoutId;
+    let lastDescription = '';
+    
+    descriptionInput.addEventListener('input', function() {
+        clearTimeout(timeoutId);
+        const description = this.value.trim();
+        
+        if (description.length >= 3 && description !== lastDescription) {
+            lastDescription = description;
+            
+            // Show loading state
+            mlIndicator.classList.remove('hidden');
+            mlConfidence.classList.remove('hidden');
+            confidenceBar.style.width = '0%';
+            confidenceText.textContent = 'Analyzing...';
+            
+            timeoutId = setTimeout(() => {
+                fetchMLPrediction(description);
+            }, 500);
+        } else if (description.length < 3) {
+            mlIndicator.classList.add('hidden');
+            mlConfidence.classList.add('hidden');
+            lastDescription = '';
+        }
+    });
+    
+    function fetchMLPrediction(description) {
+        fetch('{% url "expenses:predict_category" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify({description: description})
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            console.log('ML Prediction:', data);
+            
+            if (data.error) {
+                console.warn('ML API warning:', data.error);
+                confidenceText.textContent = 'Unavailable';
+                return;
+            }
+            
+            if (data.category && data.confidence !== undefined) {
+                const confidencePercent = (data.confidence * 100).toFixed(1);
+                
+                // Update UI
+                confidenceBar.style.width = confidencePercent + '%';
+                confidenceText.textContent = confidencePercent + '%';
+                
+                // Change color based on confidence
+                confidenceBar.className = 'h-2 rounded-full ' + 
+                    (data.confidence > 0.7 ? 'bg-green-500' :
+                     data.confidence > 0.3 ? 'bg-yellow-500' : 'bg-red-500');
+                
+                // AUTO-SELECT the category if confidence is above threshold (30%)
+                if (data.confidence > 0.3 && data.category !== 'Other') {
+                    let found = false;
+                    Array.from(categorySelect.options).forEach(option => {
+                        if (option.value === data.category) {
+                            option.selected = true;
+                            found = true;
+                        }
+                    });
+                    
+                    if (found) {
+                        // Show auto-select message
+                        showAutoSelectMessage(data.category, confidencePercent);
+                    }
+                }
+            }
+        })
+        .catch(error => {
+            console.error('ML prediction error:', error);
+            confidenceText.textContent = 'Error';
+            mlIndicator.classList.add('hidden');
+        });
+    }
+    
+    function showAutoSelectMessage(category, confidence) {
+        // Remove any existing message
+        const existingMsg = document.getElementById('autoSelectMsg');
+        if (existingMsg) existingMsg.remove();
+        
+        // Create new message
+        const messageDiv = document.createElement('div');
+        messageDiv.id = 'autoSelectMsg';
+        messageDiv.className = 'mt-3 p-2 bg-green-50 border border-green-200 rounded text-sm text-green-700 flex items-center';
+        messageDiv.innerHTML = `
+            <svg class="h-4 w-4 mr-2 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
+            </svg>
+            <span>🤖 Auto-selected category: <strong>${category}</strong> (${confidence}% confidence)</span>
+        `;
+
+        
+
+        
+        
+        // Insert after confidence bar
+        document.getElementById('mlConfidence').after(messageDiv);
+        
+        // Remove after 5 seconds
+        setTimeout(() => {
+            const msg = document.getElementById('autoSelectMsg');
+            if (msg) msg.remove();
+        }, 5000);
+    }
+    
+    
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+});
+</script>
+<style>
+    #mic-btn {
+        transition: all 0.3s ease;
+    }
+    #mic-btn:hover {
+        transform: scale(1.02);
+    }
+    
+    /* Loading animation for mic button */
+    @keyframes mic-pulse {
+        0%, 100% {
+            transform: scale(1);
+            opacity: 1;
+        }
+        50% {
+            transform: scale(1.1);
+            opacity: 0.8;
+        }
+    }
+    .mic-active {
+        animation: mic-pulse 1s ease-in-out infinite;
+    }
+</style>
+
+{% endblock %}

@@ -1,0 +1,246 @@
+{% extends 'expenses/base.html' %}
+{% load static %}
+
+{% block title %}Budget Predictions - FinanceTracker{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto">
+    <!-- Header -->
+    <div class="flex justify-between items-center mb-6">
+        <div>
+            <h1 class="text-2xl font-semibold">🔮 Budget Predictions</h1>
+            <p class="text-gray-500">AI-powered spending forecasts and smart suggestions</p>
+        </div>
+        <div class="flex gap-3">
+            <a href="{% url 'expenses:refresh_monthly_data' %}" 
+               class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg">
+                🔄 Refresh Data
+            </a>
+        </div>
+    </div>
+
+    {% if not has_data %}
+    <!-- No Data Message -->
+    <div class="bg-yellow-50 border-l-4 border-yellow-500 p-6 rounded-lg mb-6">
+        <div class="flex items-center">
+            <div class="flex-shrink-0">
+                <svg class="h-6 w-6 text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path>
+                </svg>
+            </div>
+            <div class="ml-3">
+                <p class="text-sm text-yellow-700">
+                    <strong>Need more data!</strong> We need at least 6 months of expense history to make accurate predictions.
+                </p>
+                <p class="text-sm text-yellow-700 mt-1">
+                    Generate synthetic data to test the prediction system:
+                </p>
+                <button onclick="generateData()" class="mt-2 bg-yellow-600 hover:bg-yellow-700 text-white px-3 py-1 rounded text-sm">
+                    Generate Test Data
+                </button>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Main Prediction Card -->
+    {% if budget_suggestion %}
+    <div class="bg-gradient-to-r from-blue-500 to-purple-600 rounded-xl shadow-lg mb-6 overflow-hidden">
+        <div class="p-6 text-white">
+            <div class="flex justify-between items-start">
+                <div>
+                    <p class="text-blue-100 text-sm">Predicted Spending</p>
+                    <p class="text-4xl font-bold mt-1">₹{{ budget_suggestion.predicted|floatformat:0 }}</p>
+                    <p class="text-blue-100 text-sm mt-2">
+                        Range: ₹{{ budget_suggestion.range.0|floatformat:0 }} - ₹{{ budget_suggestion.range.1|floatformat:0 }}
+                    </p>
+                </div>
+                <div class="text-right">
+                    <p class="text-blue-100 text-sm">Suggested Budget</p>
+                    <p class="text-3xl font-bold mt-1">₹{{ budget_suggestion.suggested_budget|floatformat:0 }}</p>
+                    <p class="text-blue-100 text-sm mt-2">
+                        Confidence: 
+                        <span class="font-semibold">
+                            {% if budget_suggestion.confidence == 'high' %}High 📈
+                            {% else %}Medium 📊{% endif %}
+                        </span>
+                    </p>
+                </div>
+            </div>
+            <div class="mt-4 pt-4 border-t border-blue-400">
+                <p class="text-sm text-blue-100">
+                    📅 Based on your spending patterns, this is your predicted expense for {{ budget_suggestion.month }}
+                </p>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Insights Cards -->
+    {% if insights %}
+    <div class="mb-6">
+        <h2 class="text-lg font-semibold mb-3">💡 Smart Insights</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {% for insight in insights %}
+            <div class="bg-white p-4 rounded-xl shadow border-l-4 
+                {% if insight.priority == 'high' %}border-red-500
+                {% elif insight.priority == 'medium' %}border-yellow-500
+                {% else %}border-blue-500{% endif %}">
+                <div class="flex items-start">
+                    <span class="text-2xl mr-3">{{ insight.icon }}</span>
+                    <p class="text-gray-700">{{ insight.message }}</p>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Chart -->
+    {% if chart_data %}
+    <div class="bg-white p-4 rounded-xl shadow mb-6">
+        <h3 class="font-semibold mb-4">📈 Spending Trend & Forecast</h3>
+        <div style="height: 400px;">
+            <canvas id="forecastChart"></canvas>
+        </div>
+        <p class="text-xs text-gray-500 text-center mt-3">
+            Historical data (solid) + Predicted (dashed)
+        </p>
+    </div>
+    {% endif %}
+
+    <!-- Category Breakdown -->
+    {% if budget_suggestion.category_breakdown %}
+    <div class="bg-white p-4 rounded-xl shadow">
+        <h3 class="font-semibold mb-4">📊 Suggested Category Budget</h3>
+        <div class="space-y-3">
+            {% for cat in budget_suggestion.category_breakdown %}
+            <div>
+                <div class="flex justify-between text-sm mb-1">
+                    <span class="font-medium">{{ cat.category }}</span>
+                    <span>₹{{ cat.suggested|floatformat:0 }} ({{ cat.percentage }}%)</span>
+                </div>
+                <div class="w-full bg-gray-200 rounded-full h-2">
+                    <div class="bg-blue-500 h-2 rounded-full" style="width: {{ cat.percentage }}%"></div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Historical Data Table -->
+    {% if historical_data %}
+    <div class="bg-white rounded-xl shadow overflow-hidden mt-6">
+        <div class="px-4 py-3 bg-gray-50 border-b">
+            <h3 class="font-semibold">📜 Historical Monthly Data</h3>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500">Month</th>
+                        <th class="px-4 py-3 text-right text-xs font-medium text-gray-500">Total Expense</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500">Top Category</th>
+                    </thead>
+                    <tbody class="divide-y divide-gray-200">
+                        {% for data in historical_data|slice:":6" %}
+                        <tr class="hover:bg-gray-50">
+                            <td class="px-4 py-3">{{ data.month }}</td>
+                            <td class="px-4 py-3 text-right font-medium">₹{{ data.total|floatformat:0 }}</td>
+                            <td class="px-4 py-3 text-gray-500">-</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Chart.js Script -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        {% if chart_data %}
+        const ctx = document.getElementById('forecastChart').getContext('2d');
+        
+        const labels = [];
+        const historicalData = [];
+        const predictedData = [];
+        
+        {% for item in chart_data %}
+            labels.push('{{ item.month }}');
+            {% if item.predicted %}
+                historicalData.push(null);
+                predictedData.push({{ item.total }});
+            {% else %}
+                historicalData.push({{ item.total }});
+                predictedData.push(null);
+            {% endif %}
+        {% endfor %}
+        
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [
+                    {
+                        label: 'Historical',
+                        data: historicalData,
+                        borderColor: '#3B82F6',
+                        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                        borderWidth: 2,
+                        fill: true,
+                        tension: 0.4
+                    },
+                    {
+                        label: 'Predicted',
+                        data: predictedData,
+                        borderColor: '#F59E0B',
+                        backgroundColor: 'rgba(245, 158, 11, 0.1)',
+                        borderWidth: 2,
+                        borderDash: [5, 5],
+                        fill: true,
+                        tension: 0.4
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                let label = context.dataset.label || '';
+                                if (context.parsed.y) {
+                                    label += ': ₹' + context.parsed.y.toFixed(0);
+                                }
+                                return label;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            callback: function(value) {
+                                return '₹' + value;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+        {% endif %}
+    });
+    
+    function generateData() {
+        if (confirm('Generate synthetic test data for predictions? This will create 24 months of sample data.')) {
+            window.location.href = "{% url 'expenses:refresh_monthly_data' %}";
+        }
+    }
+    </script>
+    {% endblock %}

@@ -1,0 +1,26 @@
+{% extends 'expenses/base.html' %}
+{% block content %}
+  <div class="space-y-4">
+    <div class="flex gap-4">
+        <a href="{% url 'expenses:receipt_upload' %}" class="bg-blue-600 text-white px-4 py-2 rounded inline-block">📁 Upload receipt file</a>
+        <a href="{% url 'expenses:receipt_capture' %}" class="bg-green-600 text-white px-4 py-2 rounded inline-block">📷 Capture with camera</a>
+    </div>
+    <div class="bg-white p-4 rounded shadow">
+      <h3 class="font-semibold">Your Receipts</h3>
+      {% for r in receipts %}
+        <div class="border-t py-3 flex justify-between items-center">
+          <div>
+            <div class="font-medium">Receipt #{{ r.pk }} — {{ r.uploaded_at|date:"Y-m-d H:i" }}</div>
+            <div class="text-sm text-gray-600">{{ r.parsed_vendor }} | {{ r.parsed_amount }} | {{ r.parsed_date }}</div>
+          </div>
+          <div>
+            <a href="{{ r.image.url }}" target="_blank" class="text-blue-600 mr-3">View</a>
+            <a href="{% url 'expenses:receipt_list' %}?id={{ r.pk }}" class="text-gray-600">Details</a>
+          </div>
+        </div>
+      {% empty %}
+        <p class="p-4">No receipts yet.</p>
+      {% endfor %}
+    </div>
+  </div>
+{% endblock %}

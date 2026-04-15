@@ -1,0 +1,109 @@
+{% extends 'expenses/base.html' %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto">
+    <!-- Header -->
+    <div class="bg-white rounded-lg shadow p-4 mb-6">
+        <div class="flex justify-between items-center">
+            <h2 class="text-2xl font-semibold">{{ group.name }}</h2>
+            <div class="text-sm text-gray-600">
+                <strong>Invite Code:</strong> 
+                <code class="bg-gray-100 px-2 py-1 rounded ml-2">{{ group.invite_code }}</code>
+            </div>
+        </div>
+        <p class="text-gray-600 mt-2">Created by: {{ group.created_by.username }}</p>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- Balances Section -->
+        <div class="bg-white rounded-lg shadow p-4">
+            <h3 class="text-xl font-semibold mb-4">💰 Balances</h3>
+            {% if balance_display %}
+            <div class="space-y-3">
+                {% for user, data in balance_display.items %}
+                <div class="flex justify-between items-center p-3 border rounded
+                    {% if data.is_positive == True %}bg-green-50
+                    {% elif data.is_positive == False %}bg-red-50
+                    {% else %}bg-gray-50{% endif %}">
+                    <span class="font-medium">{{ user.username }}</span>
+                    <span class="font-semibold 
+                        {% if data.is_positive == True %}text-green-600
+                        {% elif data.is_positive == False %}text-red-600
+                        {% else %}text-gray-600{% endif %}">
+                        {{ data.display }}
+                    </span>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p class="text-gray-500 text-center py-4">No expenses yet. Add one!</p>
+            {% endif %}
+        </div>
+
+        <!-- Add Expense Form -->
+        <div class="bg-white rounded-lg shadow p-4">
+            <h3 class="text-xl font-semibold mb-4">➕ Add Expense</h3>
+            <form method="post" action="{% url 'groups:add_group_expense' group.id %}">
+                {% csrf_token %}
+                <div class="space-y-3">
+                    <input type="text" name="description" placeholder="Description" 
+                           class="w-full border rounded px-3 py-2" required>
+                    <input type="number" name="amount" step="0.01" placeholder="Amount" 
+                           class="w-full border rounded px-3 py-2" required>
+                    <input type="text" name="category" placeholder="Category (e.g., Food, Travel)" 
+                           class="w-full border rounded px-3 py-2">
+                    <select name="paid_by" class="w-full border rounded px-3 py-2" required>
+                        <option value="">Select who paid</option>
+                        {% for member in group.members.all %}
+                        <option value="{{ member.user.id }}">{{ member.user.username }}</option>
+                        {% endfor %}
+                    </select>
+                    <input type="date" name="date" class="w-full border rounded px-3 py-2" required
+                           value="{% now 'Y-m-d' %}">
+                    <button type="submit" 
+                            class="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded">
+                        Add Expense
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Expenses List -->
+    <div class="bg-white rounded-lg shadow p-4 mt-6">
+        <h3 class="text-xl font-semibold mb-4">📋 Recent Expenses</h3>
+        {% if expenses %}
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
+                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Description</th>
+                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Category</th>
+                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Amount</th>
+                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Paid By</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                    {% for expense in expenses %}
+                    <tr class="hover:bg-gray-50">
+                        <td class="px-4 py-2">{{ expense.date }}</td>
+                        <td class="px-4 py-2">{{ expense.description }}</td>
+                        <td class="px-4 py-2">
+                            <span class="bg-gray-100 text-gray-800 text-xs px-2 py-1 rounded">{{ expense.category }}</span>
+                        </td>
+                        <td class="px-4 py-2 font-semibold">₹{{ expense.amount }}</td>
+                        <td class="px-4 py-2">
+                            <span class="text-blue-600">{{ expense.paid_by.username }}</span>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p class="text-gray-600 text-center py-4">No expenses added yet. Add the first expense!</p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

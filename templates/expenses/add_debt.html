@@ -1,0 +1,35 @@
+{% extends 'expenses/base.html' %}
+{% load static %}
+
+{% block title %}{{ title }} - FinanceTracker{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto bg-white p-6 rounded-xl shadow">
+    <h2 class="text-2xl font-semibold mb-6">{{ title }}</h2>
+    
+    <form method="post">
+        {% csrf_token %}
+        
+        <div class="space-y-4">
+            {% for field in form %}
+            <div>
+                <label class="block text-gray-700 font-medium mb-2">{{ field.label }}</label>
+                {{ field }}
+                {% if field.errors %}
+                <p class="text-red-500 text-sm mt-1">{{ field.errors.0 }}</p>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+        
+        <div class="flex gap-4 mt-6">
+            <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg">
+                Save
+            </button>
+            <a href="{% url 'expenses:financial_health' %}" class="bg-gray-300 hover:bg-gray-400 text-gray-800 px-6 py-2 rounded-lg">
+                Cancel
+            </a>
+        </div>
+    </form>
+</div>
+{% endblock %}

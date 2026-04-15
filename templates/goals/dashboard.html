@@ -1,0 +1,228 @@
+{% extends "expenses/base.html" %}
+{% load static %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto">
+    <div class="flex justify-between items-center mb-6">
+        <div>
+            <h1 class="text-2xl font-semibold">Your Savings Goals</h1>
+            <p class="text-gray-500">Track, optimize, and achieve your financial dreams</p>
+        </div>
+        <button onclick="openGoalModal()"
+            class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg">
+            + Add New Goal
+        </button>
+    </div>
+
+    <!-- Stats -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+        <div class="bg-white p-5 rounded-xl border-l-4 border-blue-500 shadow">
+            <p class="text-gray-500">Total Goals</p>
+            <p class="text-2xl font-bold">{{ total_goals }}</p>
+        </div>
+
+        <div class="bg-white p-5 rounded-xl border-l-4 border-green-500 shadow">
+            <p class="text-gray-500">Total Saved</p>
+            <p class="text-2xl font-bold">₹{{ total_saved }}</p>
+        </div>
+
+        <div class="bg-white p-5 rounded-xl border-l-4 border-purple-500 shadow">
+            <p class="text-gray-500">Nearest Deadline</p>
+            {% if nearest_deadline %}
+                <p class="font-semibold">
+                    {{ nearest_deadline.name }}
+                    <span class="text-sm text-gray-500">
+                        ({{ nearest_deadline.days_left }} days left)
+                    </span>
+                </p>
+            {% else %}
+                <p class="text-gray-400">-</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Active Goals -->
+    {% if active_goals %}
+    <div class="mb-8">
+        <h2 class="text-lg font-semibold mb-4">🏃 Active Goals</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {% for goal in active_goals %}
+            <div class="bg-white rounded-xl p-5 shadow border-l-4
+                {% if goal.status == 'Due Soon' %}border-orange-500
+                {% elif goal.status == 'Due Today' %}border-red-500
+                {% else %}border-green-500{% endif %}">
+                
+                <div class="flex justify-between items-start mb-3">
+                    <div class="flex-1">
+                        <h3 class="font-semibold text-lg">{{ goal.name }}</h3>
+                        <p class="text-sm text-gray-500">
+                            Target: ₹{{ goal.target_amount }} · Deadline: {{ goal.deadline }}
+                        </p>
+                    </div>
+                    
+                    {% if goal.status != "On Track" %}
+                    <span class="ml-2 px-3 py-1 rounded-full text-sm font-medium
+                        {% if goal.status == 'Due Soon' %}bg-orange-100 text-orange-700
+                        {% elif goal.status == 'Due Today' %}bg-red-100 text-red-700{% endif %}">
+                        {{ goal.status }}
+                    </span>
+                    {% endif %}
+                </div>
+
+                <div class="mb-3">
+                    <div class="flex justify-between text-sm mb-1">
+                        <span class="text-gray-600">₹{{ goal.saved_amount }} saved of ₹{{ goal.target_amount }}</span>
+                        <span class="font-semibold">{{ goal.progress_percentage|floatformat:0 }}%</span>
+                    </div>
+                    <div class="w-full bg-gray-200 rounded-full h-2">
+                        <div class="bg-blue-500 h-2 rounded-full"
+                             style="width: {{ goal.progress_percentage }}%"></div>
+                    </div>
+                </div>
+
+                <!-- Quick Actions -->
+                <div class="flex flex-wrap gap-2 mt-4">
+                    <button onclick="openDepositModal({{ goal.id }}, '{{ goal.name|escapejs }}')"
+                        class="bg-blue-100 hover:bg-blue-200 text-blue-700 px-3 py-1 rounded text-sm">
+                        Add Deposit
+                    </button>
+                    <button onclick="openEditGoalModal({{ goal.id }}, '{{ goal.name|escapejs }}', {{ goal.target_amount }}, '{{ goal.deadline|date:"Y-m-d" }}')"
+                        class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1 rounded text-sm">
+                        Edit
+                    </button>
+                    <form method="post" action="{% url 'goals:toggle_complete' goal.id %}" class="inline">
+                        {% csrf_token %}
+                        <button type="submit" class="bg-green-100 hover:bg-green-200 text-green-700 px-3 py-1 rounded text-sm">
+                            Mark Complete
+                        </button>
+                    </form>
+                    <form method="post" action="{% url 'goals:delete_goal' goal.id %}" class="inline" onsubmit="return confirm('Delete this goal?');">
+                        {% csrf_token %}
+                        <button type="submit" class="bg-red-100 hover:bg-red-200 text-red-700 px-3 py-1 rounded text-sm">
+                            Delete
+                        </button>
+                    </form>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Completed Goals -->
+    {% if completed_goals %}
+    <div>
+        <h2 class="text-lg font-semibold mb-4">✅ Completed Goals</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {% for goal in completed_goals %}
+            <div class="bg-white rounded-xl p-5 shadow border-l-4 border-green-500">
+                <div class="flex justify-between items-start mb-3">
+                    <div>
+                        <h3 class="font-semibold text-lg">{{ goal.name }}</h3>
+                        <p class="text-sm text-gray-500">
+                            Completed on: {{ goal.completed_at|date:"M d, Y"|default:"-" }}
+                        </p>
+                    </div>
+                    <span class="bg-green-100 text-green-700 px-3 py-1 rounded-full text-sm font-medium">
+                        Completed 🎉
+                    </span>
+                </div>
+
+                <div class="mb-3">
+                    <div class="flex justify-between text-sm mb-1">
+                        <span class="text-gray-600">Achieved: ₹{{ goal.saved_amount }}</span>
+                        <span class="font-semibold text-green-600">100%</span>
+                    </div>
+                    <div class="w-full bg-gray-200 rounded-full h-2">
+                        <div class="bg-green-500 h-2 rounded-full" style="width: 100%"></div>
+                    </div>
+                </div>
+
+                <!-- Quick Actions -->
+                <div class="flex gap-2 mt-4">
+                    <form method="post" action="{% url 'goals:toggle_complete' goal.id %}" class="inline">
+                        {% csrf_token %}
+                        <button type="submit" class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1 rounded text-sm">
+                            Reactivate
+                        </button>
+                    </form>
+                    <form method="post" action="{% url 'goals:delete_goal' goal.id %}" class="inline" onsubmit="return confirm('Delete this goal?');">
+                        {% csrf_token %}
+                        <button type="submit" class="bg-red-100 hover:bg-red-200 text-red-700 px-3 py-1 rounded text-sm">
+                            Delete
+                        </button>
+                    </form>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    {% if not active_goals and not completed_goals %}
+    <div class="text-center py-12">
+        <div class="text-gray-400 mb-4">
+            <svg class="w-16 h-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+            </svg>
+        </div>
+        <h3 class="text-lg font-semibold text-gray-600 mb-2">No goals yet</h3>
+        <p class="text-gray-500 mb-4">Start your savings journey by creating your first goal!</p>
+        <button onclick="openGoalModal()"
+            class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg">
+            Create Your First Goal
+        </button>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Include Modals -->
+{% include "goals/add_goal_modal.html" %}
+{% include "goals/deposit_modal.html" %}
+{% include "goals/edit_goal_modal.html" %}
+
+<script>
+function openGoalModal() {
+    document.getElementById('goalModal').classList.remove('hidden');
+}
+
+function closeGoalModal() {
+    document.getElementById('goalModal').classList.add('hidden');
+}
+
+function openDepositModal(goalId, goalName) {
+    document.getElementById('depositGoalId').value = goalId;
+    document.getElementById('depositGoalName').textContent = goalName;
+    document.getElementById('depositModal').classList.remove('hidden');
+}
+
+function closeDepositModal() {
+    document.getElementById('depositModal').classList.add('hidden');
+}
+
+function openEditGoalModal(goalId, goalName, targetAmount, deadline) {
+    document.getElementById('editGoalId').value = goalId;
+    document.getElementById('editGoalName').value = goalName;
+    document.getElementById('editTargetAmount').value = targetAmount;
+    document.getElementById('editDeadline').value = deadline;
+    document.getElementById('editGoalModal').classList.remove('hidden');
+}
+
+function closeEditGoalModal() {
+    document.getElementById('editGoalModal').classList.add('hidden');
+}
+
+// Close modals when clicking outside
+document.addEventListener('click', function(event) {
+    const modals = ['goalModal', 'depositModal', 'editGoalModal'];
+    modals.forEach(modalId => {
+        const modal = document.getElementById(modalId);
+        if (modal && !modal.classList.contains('hidden')) {
+            if (event.target === modal) {
+                modal.classList.add('hidden');
+            }
+        }
+    });
+});
+</script>
+{% endblock %}

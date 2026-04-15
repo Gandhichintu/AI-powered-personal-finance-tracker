@@ -1,0 +1,93 @@
+<div id="editPaymentModal" class="fixed inset-0 bg-black bg-opacity-40 hidden flex items-center justify-center z-50">
+    <div class="bg-white w-full max-w-md rounded-xl p-6 relative m-4">
+        <button onclick="closeEditPaymentModal()" class="absolute right-4 top-4 text-gray-400 hover:text-gray-600">✕</button>
+        
+        <h2 class="text-xl font-semibold mb-4">Edit Payment</h2>
+        
+        <form method="post" action="" id="editPaymentForm">
+            {% csrf_token %}
+            <input type="hidden" name="payment_id" id="editPaymentId">
+            
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Payment Name</label>
+                    <input type="text" name="name" id="editName"
+                           class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                           placeholder="e.g., Netflix Subscription" required>
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Amount (₹)</label>
+                    <input type="number" name="amount" id="editAmount" step="0.01" min="0.01"
+                           class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                           placeholder="500" required>
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Category</label>
+                    <select name="category" id="editCategory"
+                            class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" required>
+                        <option value="">Select Category</option>
+                        <option value="subscription">Subscription</option>
+                        <option value="entertainment">Entertainment</option>
+                        <option value="rent">Rent</option>
+                        <option value="bills">Bills</option>
+                        <option value="insurance">Insurance</option>
+                        <option value="loan">Loan</option>
+                        <option value="other">Other</option>
+                    </select>
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Frequency</label>
+                    <select name="frequency" id="editFrequency"
+                            class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" required>
+                        <option value="">Select Frequency</option>
+                        <option value="daily">Daily</option>
+                        <option value="weekly">Weekly</option>
+                        <option value="monthly">Monthly</option>
+                        <option value="yearly">Yearly</option>
+                    </select>
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Next Payment Date</label>
+                    <input type="date" name="next_payment_date" id="editNextPaymentDate"
+                           class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                           required>
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Notes (Optional)</label>
+                    <textarea name="notes" id="editNotes" rows="3"
+                              class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              placeholder="Any additional information..."></textarea>
+                </div>
+            </div>
+            
+            <div class="flex gap-3 mt-6">
+                <button type="button" onclick="closeEditPaymentModal()"
+                    class="flex-1 border border-gray-300 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-50">
+                    Cancel
+                </button>
+                <button type="submit"
+                    class="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg">
+                    Save Changes
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+// Set form action dynamically
+document.addEventListener('DOMContentLoaded', function() {
+    const editPaymentForm = document.getElementById('editPaymentForm');
+    const editPaymentId = document.getElementById('editPaymentId');
+    
+    editPaymentForm.addEventListener('submit', function(e) {
+        const paymentId = editPaymentId.value;
+        this.action = `/recurring/${paymentId}/edit/`;
+    });
+});
+</script>

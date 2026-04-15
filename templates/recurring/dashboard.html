@@ -1,0 +1,231 @@
+{% extends "expenses/base.html" %}
+{% block content %}
+<div class="max-w-6xl mx-auto">
+    <div class="flex justify-between items-center mb-6">
+        <div>
+            <h1 class="text-2xl font-semibold">Recurring Payments</h1>
+            <p class="text-gray-500">Manage subscriptions, bills, and automated payments</p>
+        </div>
+        <button onclick="openPaymentModal()"
+            class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg">
+            + Add Payment
+        </button>
+    </div>
+
+    <!-- Stats -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        <div class="bg-white p-5 rounded-xl border-l-4 border-blue-500 shadow">
+            <p class="text-gray-500">Total Monthly</p>
+            <p class="text-2xl font-bold">₹{{ total_monthly }}</p>
+            <p class="text-sm text-gray-500">Active monthly payments</p>
+        </div>
+
+        <div class="bg-white p-5 rounded-xl border-l-4 border-orange-500 shadow">
+            <p class="text-gray-500">Due This Week</p>
+            <p class="text-2xl font-bold">{{ due_this_week_count }}</p>
+            <p class="text-sm text-gray-500">Payments due in 0-7 days</p>
+        </div>
+
+        <div class="bg-white p-5 rounded-xl border-l-4 border-green-500 shadow">
+            <p class="text-gray-500">Potential Savings</p>
+            <p class="text-2xl font-bold">₹{{ potential_savings }}</p>
+            <p class="text-sm text-gray-500">From optimizing subscriptions</p>
+        </div>
+    </div>
+
+    <!-- Due This Week Warning -->
+    {% if due_this_week %}
+    <div class="bg-orange-50 border-l-4 border-orange-500 p-4 mb-6">
+        <div class="flex">
+            <div class="flex-shrink-0">
+                <svg class="h-5 w-5 text-orange-400" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path>
+                </svg>
+            </div>
+            <div class="ml-3">
+                <p class="text-sm text-orange-700">
+                    <strong>{{ due_this_week_count }} payment(s) due this week:</strong>
+                    {% for payment in due_this_week %}
+                        {{ payment.name }}{% if not forloop.last %}, {% endif %}
+                    {% endfor %}
+                </p>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Payments Table -->
+    <div class="bg-white rounded-xl shadow overflow-hidden mb-6">
+        <div class="overflow-x-auto">
+            <table class="w-full">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="p-4 text-left text-sm font-medium text-gray-500">Name</th>
+                        <th class="p-4 text-left text-sm font-medium text-gray-500">Amount</th>
+                        <th class="p-4 text-left text-sm font-medium text-gray-500">Category</th>
+                        <th class="p-4 text-left text-sm font-medium text-gray-500">Frequency</th>
+                        <th class="p-4 text-left text-sm font-medium text-gray-500">Next Payment</th>
+                        <th class="p-4 text-left text-sm font-medium text-gray-500">Status</th>
+                        <th class="p-4 text-left text-sm font-medium text-gray-500">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-200">
+                    {% for payment in payments %}
+                    <tr class="hover:bg-gray-50 {% if not payment.is_active %}opacity-60{% endif %}">
+                        <td class="p-4">
+                            <div class="font-medium">{{ payment.name }}</div>
+                            {% if payment.notes %}
+                            <div class="text-xs text-gray-500">{{ payment.notes|truncatechars:30 }}</div>
+                            {% endif %}
+                        </td>
+                        <td class="p-4 font-medium">₹{{ payment.amount }}</td>
+                        <td class="p-4">
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium 
+                                {% if payment.category == 'subscription' %}bg-purple-100 text-purple-800
+                                {% elif payment.category == 'entertainment' %}bg-pink-100 text-pink-800
+                                {% elif payment.category == 'bills' %}bg-blue-100 text-blue-800
+                                {% elif payment.category == 'rent' %}bg-green-100 text-green-800
+                                {% else %}bg-gray-100 text-gray-800{% endif %}">
+                                {{ payment.get_category_display }}
+                            </span>
+                        </td>
+                        <td class="p-4">
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                                {{ payment.get_frequency_display }}
+                            </span>
+                        </td>
+                        <td class="p-4">
+                            <div class="flex items-center">
+                                {{ payment.next_payment_date }}
+                                {% if payment.days_until_due <= 3 and payment.is_active %}
+                                <span class="ml-2 text-xs text-red-600">({{ payment.days_until_due }} days)</span>
+                                {% endif %}
+                            </div>
+                        </td>
+                        <td class="p-4">
+                            {% if payment.is_active %}
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium 
+                                {% if payment.days_until_due < 0 %}bg-red-100 text-red-800
+                                {% elif payment.days_until_due <= 3 %}bg-orange-100 text-orange-800
+                                {% elif payment.days_until_due <= 7 %}bg-yellow-100 text-yellow-800
+                                {% else %}bg-green-100 text-green-800{% endif %}">
+                                {% if payment.days_until_due < 0 %}Overdue
+                                {% elif payment.days_until_due == 0 %}Due Today
+                                {% elif payment.days_until_due <= 7 %}Due Soon
+                                {% else %}Active{% endif %}
+                            </span>
+                            {% else %}
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                                Paused
+                            </span>
+                            {% endif %}
+                        </td>
+                        <td class="p-4">
+                            <div class="flex space-x-2">
+                                <button onclick="openEditPaymentModal(
+                                    {{ payment.id }},
+                                    '{{ payment.name|escapejs }}',
+                                    {{ payment.amount }},
+                                    '{{ payment.category }}',
+                                    '{{ payment.frequency }}',
+                                    '{{ payment.next_payment_date|date:"Y-m-d" }}',
+                                    '{{ payment.notes|escapejs }}'
+                                )" class="text-blue-600 hover:text-blue-800">
+                                    ✏️
+                                </button>
+                                <form method="post" action="{% url 'recurring:toggle_active' payment.id %}" class="inline">
+                                    {% csrf_token %}
+                                    <button type="submit" class="text-orange-600 hover:text-orange-800">
+                                        {% if payment.is_active %}⏸️{% else %}▶️{% endif %}
+                                    </button>
+                                </form>
+                                <form method="post" action="{% url 'recurring:delete' payment.id %}" class="inline" 
+                                      onsubmit="return confirm('Delete this recurring payment?');">
+                                    {% csrf_token %}
+                                    <button type="submit" class="text-red-600 hover:text-red-800">
+                                        🗑️
+                                    </button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="7" class="p-8 text-center text-gray-500">
+                            <div class="mb-4">
+                                <svg class="w-12 h-12 mx-auto text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"></path>
+                                </svg>
+                            </div>
+                            <p class="mb-2">No recurring payments yet</p>
+                            <button onclick="openPaymentModal()" class="text-blue-600 hover:text-blue-800">
+                                Add your first payment
+                            </button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Potential Savings Explanation -->
+    <div class="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
+        <h3 class="text-lg font-semibold text-green-800 mb-2">💰 About Potential Savings</h3>
+        <p class="text-green-700 mb-2">
+            Potential savings are calculated by identifying subscription payments that could be optimized:
+        </p>
+        <ul class="text-green-700 list-disc list-inside space-y-1">
+            <li>Entertainment subscriptions (Netflix, Spotify, etc.)</li>
+            <li>Unused or duplicate services</li>
+            <li>Annual plans that could save vs monthly</li>
+            <li>Family/shared plans optimization</li>
+        </ul>
+        <p class="text-green-700 mt-2 text-sm">
+            <strong>Tip:</strong> Review your subscriptions quarterly to identify savings opportunities.
+        </p>
+    </div>
+</div>
+
+<!-- Include Modals -->
+{% include "recurring/add_payment_modal.html" %}
+{% include "recurring/edit_payment_modal.html" %}
+
+<script>
+function openPaymentModal() {
+    document.getElementById('paymentModal').classList.remove('hidden');
+}
+
+function closePaymentModal() {
+    document.getElementById('paymentModal').classList.add('hidden');
+}
+
+function openEditPaymentModal(id, name, amount, category, frequency, nextDate, notes) {
+    document.getElementById('editPaymentId').value = id;
+    document.getElementById('editName').value = name;
+    document.getElementById('editAmount').value = amount;
+    document.getElementById('editCategory').value = category;
+    document.getElementById('editFrequency').value = frequency;
+    document.getElementById('editNextPaymentDate').value = nextDate;
+    document.getElementById('editNotes').value = notes || '';
+    document.getElementById('editPaymentModal').classList.remove('hidden');
+}
+
+function closeEditPaymentModal() {
+    document.getElementById('editPaymentModal').classList.add('hidden');
+}
+
+// Close modals when clicking outside
+document.addEventListener('click', function(event) {
+    const modals = ['paymentModal', 'editPaymentModal'];
+    modals.forEach(modalId => {
+        const modal = document.getElementById(modalId);
+        if (modal && !modal.classList.contains('hidden')) {
+            if (event.target === modal) {
+                modal.classList.add('hidden');
+            }
+        }
+    });
+});
+</script>
+{% endblock %}

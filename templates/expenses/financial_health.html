@@ -1,0 +1,255 @@
+{% extends 'expenses/base.html' %}
+{% load static %}
+
+{% block title %}Financial Health - FinanceTracker{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto">
+    <!-- Header -->
+    <div class="flex justify-between items-center mb-6">
+        <div>
+            <h1 class="text-2xl font-semibold">💪 Financial Health Dashboard</h1>
+            <p class="text-gray-500">Track your income, savings, debt, and overall financial wellness</p>
+        </div>
+        <div class="flex gap-3">
+            <a href="{% url 'expenses:add_income' %}" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg inline-block">
+                + Add Income
+            </a>
+            <a href="{% url 'expenses:add_debt' %}" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg inline-block">
+                + Add Debt
+            </a>
+            <a href="{% url 'expenses:add_asset' %}" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg inline-block">
+                + Add Asset
+            </a>
+        </div>
+    </div>
+
+    <!-- Health Score Card -->
+    <div class="bg-gradient-to-r from-purple-500 to-pink-500 rounded-xl shadow-lg mb-6">
+        <div class="p-6 text-white">
+            <div class="flex justify-between items-center">
+                <div>
+                    <p class="text-purple-100 text-sm">Your Financial Health Score</p>
+                    <p class="text-5xl font-bold mt-2">{{ summary.financial_health_score|floatformat:0 }}/100</p>
+                </div>
+                <div class="text-right">
+                    <p class="text-purple-100 text-sm">Net Worth</p>
+                    <p class="text-2xl font-bold">₹{{ summary.net_worth|floatformat:0 }}</p>
+                </div>
+            </div>
+            <div class="mt-4 w-full bg-purple-300 rounded-full h-2">
+                <div class="bg-white rounded-full h-2" style="width: {{ summary.financial_health_score }}%"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Key Metrics -->
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+        <div class="bg-white p-4 rounded-xl shadow">
+            <p class="text-gray-500 text-sm">Monthly Income</p>
+            <p class="text-2xl font-bold text-green-600">₹{{ summary.monthly_income|floatformat:0 }}</p>
+        </div>
+        <div class="bg-white p-4 rounded-xl shadow">
+            <p class="text-gray-500 text-sm">Monthly Expenses</p>
+            <p class="text-2xl font-bold text-red-600">₹{{ summary.monthly_expenses|floatformat:0 }}</p>
+        </div>
+        <div class="bg-white p-4 rounded-xl shadow">
+            <p class="text-gray-500 text-sm">Savings Rate</p>
+            <p class="text-2xl font-bold {% if summary.savings_rate > 20 %}text-green-600{% elif summary.savings_rate > 0 %}text-yellow-600{% else %}text-red-600{% endif %}">
+                {{ summary.savings_rate|floatformat:1 }}%
+            </p>
+        </div>
+        <div class="bg-white p-4 rounded-xl shadow">
+            <p class="text-gray-500 text-sm">Debt-to-Income</p>
+            <p class="text-2xl font-bold {% if summary.debt_to_income_ratio < 30 %}text-green-600{% else %}text-red-600{% endif %}">
+                {{ summary.debt_to_income_ratio|floatformat:1 }}%
+            </p>
+        </div>
+    </div>
+
+    <!-- Insights -->
+    {% if insights %}
+    <div class="mb-6">
+        <h2 class="text-lg font-semibold mb-3">💡 Financial Insights</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {% for insight in insights %}
+            <div class="bg-white p-4 rounded-xl shadow border-l-4 
+                {% if insight.priority == 'high' %}border-red-500
+                {% elif insight.priority == 'medium' %}border-yellow-500
+                {% else %}border-green-500{% endif %}">
+                <div class="flex items-start">
+                    <span class="text-2xl mr-3">{{ insight.icon }}</span>
+                    <div>
+                        <p class="text-gray-700">{{ insight.message }}</p>
+                        <p class="text-sm text-gray-500 mt-1">💡 {{ insight.action }}</p>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Emergency Fund -->
+    {% if summary.emergency_fund %}
+    <div class="bg-white p-4 rounded-xl shadow mb-6">
+        <div class="flex justify-between items-center mb-3">
+            <h3 class="font-semibold">🛡️ Emergency Fund</h3>
+            <a href="{% url 'expenses:setup_emergency' %}" class="text-blue-600 text-sm hover:underline">
+                {% if summary.emergency_fund.current == 0 %}Setup{% else %}Update{% endif %}
+            </a>
+        </div>
+        <div class="flex justify-between mb-2">
+            <span>Progress: ₹{{ summary.emergency_fund.current|floatformat:0 }} / ₹{{ summary.emergency_fund.target|floatformat:0 }}</span>
+            <span>{{ summary.emergency_fund.months_covered }} months covered</span>
+        </div>
+        <div class="w-full bg-gray-200 rounded-full h-2">
+            <div class="bg-blue-500 rounded-full h-2" style="width: {{ summary.emergency_fund.progress }}%"></div>
+        </div>
+        <p class="text-sm text-gray-500 mt-2">Target: {{ summary.emergency_fund.target_months }} months of expenses</p>
+        
+        {% if summary.emergency_fund.current < summary.emergency_fund.target %}
+        <div class="mt-3">
+            <a href="{% url 'expenses:update_emergency' %}" class="bg-blue-100 hover:bg-blue-200 text-blue-700 px-3 py-1 rounded text-sm inline-block">
+                + Add to Fund
+            </a>
+        </div>
+        {% endif %}
+    </div>
+    {% else %}
+    <div class="bg-yellow-50 border-l-4 border-yellow-500 p-4 rounded-lg mb-6">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="text-yellow-700"><strong>No emergency fund setup yet!</strong></p>
+                <p class="text-sm text-yellow-600">An emergency fund helps you handle unexpected expenses.</p>
+            </div>
+            <a href="{% url 'expenses:setup_emergency' %}" class="bg-yellow-600 hover:bg-yellow-700 text-white px-4 py-2 rounded-lg text-sm">
+                Setup Emergency Fund
+            </a>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Financial Goals -->
+    {% if goals %}
+    <div class="bg-white p-4 rounded-xl shadow mb-6">
+        <div class="flex justify-between items-center mb-3">
+            <h3 class="font-semibold">🎯 Active Financial Goals</h3>
+            <a href="{% url 'expenses:add_financial_goal' %}" class="text-blue-600 text-sm hover:underline">+ Add Goal</a>
+        </div>
+        <div class="space-y-3">
+            {% for goal in goals %}
+            <div>
+                <div class="flex justify-between text-sm">
+                    <span>{{ goal.name }}</span>
+                    <span>₹{{ goal.current_amount|floatformat:0 }} / ₹{{ goal.target_amount|floatformat:0 }}</span>
+                </div>
+                <div class="w-full bg-gray-200 rounded-full h-2">
+                    <div class="bg-green-500 rounded-full h-2" style="width: {{ goal.progress_percentage }}%"></div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% else %}
+    <div class="bg-white p-4 rounded-xl shadow mb-6">
+        <div class="flex justify-between items-center">
+            <div>
+                <h3 class="font-semibold">🎯 Financial Goals</h3>
+                <p class="text-sm text-gray-500">Set goals to achieve financial milestones</p>
+            </div>
+            <a href="{% url 'expenses:add_financial_goal' %}" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm">
+                + Add Goal
+            </a>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Recent Data Tables -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div class="bg-white rounded-xl shadow">
+            <div class="px-4 py-3 bg-gray-50 border-b">
+                <h3 class="font-semibold">💰 Recent Income</h3>
+            </div>
+            <div class="divide-y">
+                {% for income in recent_incomes %}
+                <div class="p-3 flex justify-between items-center">
+                    <div>
+                        <span class="font-medium">{{ income.source }}</span>
+                        <span class="text-sm text-gray-500 ml-2">{{ income.date|date:"M d, Y" }}</span>
+                        {% if income.income_type %}
+                        <span class="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded ml-2">{{ income.get_income_type_display }}</span>
+                        {% endif %}
+                    </div>
+                    <span class="text-green-600 font-medium">+₹{{ income.amount|floatformat:0 }}</span>
+                </div>
+                {% empty %}
+                <div class="p-4 text-center text-gray-500">
+                    <p>No income records yet</p>
+                    <a href="{% url 'expenses:add_income' %}" class="text-blue-600 text-sm mt-2 inline-block">Add your first income →</a>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="bg-white rounded-xl shadow">
+            <div class="px-4 py-3 bg-gray-50 border-b">
+                <h3 class="font-semibold">📋 Active Debts</h3>
+            </div>
+            <div class="divide-y">
+                {% for debt in recent_debts %}
+                <div class="p-3">
+                    <div class="flex justify-between items-center">
+                        <span class="font-medium">{{ debt.name }}</span>
+                        <span class="text-red-600 font-medium">₹{{ debt.amount|floatformat:0 }}</span>
+                    </div>
+                    <div class="text-sm text-gray-500 mt-1">
+                        Due: {{ debt.due_date|date:"M d, Y" }} | Monthly: ₹{{ debt.monthly_payment|floatformat:0 }}
+                        {% if debt.interest_rate > 0 %} | Interest: {{ debt.interest_rate }}%{% endif %}
+                    </div>
+                </div>
+                {% empty %}
+                <div class="p-4 text-center text-gray-500">
+                    <p>No active debts</p>
+                    <a href="{% url 'expenses:add_debt' %}" class="text-blue-600 text-sm mt-2 inline-block">Add debt record →</a>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Assets Section -->
+    <div class="bg-white rounded-xl shadow mt-6">
+        <div class="px-4 py-3 bg-gray-50 border-b flex justify-between items-center">
+            <h3 class="font-semibold">🏦 Your Assets</h3>
+            <a href="{% url 'expenses:add_asset' %}" class="text-blue-600 text-sm hover:underline">+ Add Asset</a>
+        </div>
+        <div class="divide-y">
+            {% for asset in recent_assets %}
+            <div class="p-3 flex justify-between items-center">
+                <div>
+                    <span class="font-medium">{{ asset.name }}</span>
+                    <span class="text-sm text-gray-500 ml-2">{{ asset.get_asset_type_display }}</span>
+                </div>
+                <span class="text-blue-600 font-medium">₹{{ asset.value|floatformat:0 }}</span>
+            </div>
+            {% empty %}
+            <div class="p-4 text-center text-gray-500">
+                <p>No assets recorded</p>
+                <a href="{% url 'expenses:add_asset' %}" class="text-blue-600 text-sm mt-2 inline-block">Add your first asset →</a>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<!-- Quick Stats Script -->
+<script>
+// Display any messages
+{% if messages %}
+    {% for message in messages %}
+        console.log("{{ message }}");
+    {% endfor %}
+{% endif %}
+</script>
+{% endblock %}

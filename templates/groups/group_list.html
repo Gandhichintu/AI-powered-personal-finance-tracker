@@ -1,0 +1,47 @@
+{% extends 'expenses/base.html' %}
+{% block content %}
+<div class="max-w-4xl mx-auto">
+    <div class="flex justify-between items-center mb-6">
+        <h2 class="text-2xl font-semibold">Your Groups</h2>
+        <div class="flex space-x-3">
+            <a href="{% url 'groups:group_create' %}" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded">
+                Create Group
+            </a>
+            <a href="{% url 'groups:group_join' %}" class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded">
+                Join Group
+            </a>
+        </div>
+    </div>
+
+    {% if groups %}
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {% for group in groups %}
+        <div class="bg-white border rounded-lg shadow p-4">
+            <h3 class="text-lg font-semibold mb-2">
+                <a href="{% url 'groups:group_dashboard' group.id %}" class="text-blue-600 hover:text-blue-800">
+                    {{ group.name }}
+                </a>
+            </h3>
+            <p class="text-sm text-gray-600 mb-2">Created by: {{ group.created_by.username }}</p>
+            <p class="text-sm text-gray-600 mb-3">Members: {{ group.members.count }}</p>
+            <div class="text-xs text-gray-500">
+                <strong>Invite Code:</strong> <code class="bg-gray-100 px-2 py-1 rounded">{{ group.invite_code }}</code>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="bg-white border rounded-lg shadow p-8 text-center">
+        <p class="text-gray-600 mb-4">You haven't joined any groups yet.</p>
+        <div class="space-x-4">
+            <a href="{% url 'groups:group_create' %}" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded inline-block">
+                Create Your First Group
+            </a>
+            <a href="{% url 'groups:group_join' %}" class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded inline-block">
+                Join a Group
+            </a>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

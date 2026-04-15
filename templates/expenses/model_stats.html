@@ -1,0 +1,44 @@
+{% extends 'expenses/base.html' %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto">
+    <h1 class="text-2xl font-semibold mb-6">ML Model Statistics</h1>
+    
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+        <div class="bg-white p-6 rounded shadow">
+            <h3 class="text-gray-500 mb-2">Model Status</h3>
+            <p class="text-2xl font-bold {% if stats.model_loaded %}text-green-600{% else %}text-red-600{% endif %}">
+                {% if stats.model_loaded %}✅ Loaded{% else %}❌ Not Loaded{% endif %}
+            </p>
+        </div>
+        
+        <div class="bg-white p-6 rounded shadow">
+            <h3 class="text-gray-500 mb-2">Categories</h3>
+            <p class="text-2xl font-bold">{{ stats.total_categories }}</p>
+        </div>
+        
+        <div class="bg-white p-6 rounded shadow">
+            <h3 class="text-gray-500 mb-2">Training Samples</h3>
+            <p class="text-2xl font-bold">500</p>
+        </div>
+    </div>
+    
+    <div class="bg-white p-6 rounded shadow mb-6">
+        <h2 class="text-lg font-semibold mb-4">Categories List</h2>
+        <div class="flex flex-wrap gap-2">
+            {% for category in stats.categories %}
+            <span class="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm">
+                {{ category }}
+            </span>
+            {% endfor %}
+        </div>
+    </div>
+    
+    {% if stats.confusion_matrix %}
+    <div class="bg-white p-6 rounded shadow">
+        <h2 class="text-lg font-semibold mb-4">Confusion Matrix</h2>
+        <img src="{{ stats.confusion_matrix }}" alt="Confusion Matrix" class="max-w-full">
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

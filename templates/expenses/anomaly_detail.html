@@ -1,0 +1,147 @@
+{% extends 'expenses/base.html' %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto">
+    <!-- Header -->
+    <div class="mb-6">
+        <a href="{% url 'expenses:anomaly_dashboard' %}" class="text-blue-600 hover:text-blue-800 mb-2 inline-block">
+            ← Back to Anomalies
+        </a>
+        <h1 class="text-2xl font-semibold">Anomaly Details</h1>
+    </div>
+
+    <!-- Main Card -->
+    <div class="bg-white rounded-xl shadow overflow-hidden">
+        <!-- Severity Header -->
+        <div class="p-4 {% if expense.anomaly_score > 3 %}bg-red-50 border-l-4 border-red-500{% else %}bg-yellow-50 border-l-4 border-yellow-500{% endif %}">
+            <div class="flex items-center justify-between">
+                <div>
+                    <span class="text-sm font-medium {% if expense.anomaly_score > 3 %}text-red-800{% else %}text-yellow-800{% endif %}">
+                        {% if expense.anomaly_score > 3 %}🚨 Severe Anomaly{% else %}⚠️ Moderate Anomaly{% endif %}
+                    </span>
+                    <p class="text-lg font-semibold mt-1">{{ expense.anomaly_reason }}</p>
+                </div>
+                <div class="text-right">
+                    <span class="text-sm text-gray-500">Z-Score</span>
+                    <p class="text-3xl font-bold {% if expense.anomaly_score > 3 %}text-red-600{% else %}text-yellow-600{% endif %}">
+                        {{ expense.anomaly_score|floatformat:2 }}
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Expense Details -->
+        <div class="p-6">
+            <div class="grid grid-cols-2 gap-6 mb-6">
+                <div>
+                    <h3 class="text-sm font-medium text-gray-500 mb-3">Expense Information</h3>
+                    <dl class="space-y-2">
+                        <div class="flex justify-between">
+                            <dt class="text-gray-600">Amount:</dt>
+                            <dd class="font-semibold">₹{{ expense.amount }}</dd>
+                        </div>
+                        <div class="flex justify-between">
+                            <dt class="text-gray-600">Category:</dt>
+                            <dd>{{ expense.category }}</dd>
+                        </div>
+                        <div class="flex justify-between">
+                            <dt class="text-gray-600">Vendor:</dt>
+                            <dd>{{ expense.vendor }}</dd>
+                        </div>
+                        <div class="flex justify-between">
+                            <dt class="text-gray-600">Date:</dt>
+                            <dd>{{ expense.date }}</dd>
+                        </div>
+                        <div class="flex justify-between">
+                            <dt class="text-gray-600">Description:</dt>
+                            <dd>{{ expense.description|default:"-" }}</dd>
+                        </div>
+                    </dl>
+                </div>
+                
+                <div>
+                    <h3 class="text-sm font-medium text-gray-500 mb-3">Statistical Context</h3>
+                    <dl class="space-y-2">
+                        <div class="flex justify-between">
+                            <dt class="text-gray-600">Category Average:</dt>
+                            <dd>₹{{ stats.mean|floatformat:0 }}</dd>
+                        </div>
+                        <div class="flex justify-between">
+                            <dt class="text-gray-600">Std Deviation:</dt>
+                            <dd>₹{{ stats.std|floatformat:0 }}</dd>
+                        </div>
+                        <div class="flex justify-between">
+                            <dt class="text-gray-600">Data Points:</dt>
+                            <dd>{{ stats.count }} expenses</dd>
+                        </div>
+                        <div class="flex justify-between">
+                            <dt class="text-gray-600">Normal Range:</dt>
+                            <dd>₹{{ stats.min|floatformat:0 }} - ₹{{ stats.max|floatformat:0 }}</dd>
+                        </div>
+                    </dl>
+                </div>
+            </div>
+
+            <!-- Comparison with similar expenses -->
+            {% if similar %}
+            <div class="border-t pt-6">
+                <h3 class="text-sm font-medium text-gray-500 mb-3">Similar Expenses (Last 90 days)</h3>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500">Date</th>
+                                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500">Vendor</th>
+                                <th class="px-4 py-2 text-right text-xs font-medium text-gray-500">Amount</th>
+                                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500">Difference</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y">
+                            {% for exp in similar %}
+                            <tr>
+                                <td class="px-4 py-2">{{ exp.date }}</td>
+                                <td class="px-4 py-2">{{ exp.vendor }}</td>
+                                <td class="px-4 py-2 text-right">₹{{ exp.amount }}</td>
+                                <td class="px-4 py-2">
+                                    {% with diff=expense.amount|add:"-"|add:exp.amount %}
+                                        {% if diff > 0 %}
+                                        <span class="text-red-600">+₹{{ diff|floatformat:0 }}</span>
+                                        {% else %}
+                                        <span class="text-green-600">₹{{ diff|floatformat:0 }}</span>
+                                        {% endif %}
+                                    {% endwith %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Action Buttons -->
+            <div class="flex gap-4 mt-6 pt-4 border-t">
+                <form method="post" action="{% url 'expenses:mark_anomaly_reviewed' expense.id %}">
+                    {% csrf_token %}
+                    <button type="submit" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded">
+                        ✅ Mark as Reviewed
+                    </button>
+                </form>
+                
+                <form method="post" action="{% url 'expenses:dismiss_anomaly' expense.id %}" 
+                      onsubmit="return confirm('Are you sure this is not an anomaly?');">
+                    {% csrf_token %}
+                    <button type="submit" class="bg-gray-300 hover:bg-gray-400 text-gray-800 px-4 py-2 rounded">
+                        ✖️ Dismiss (Not Anomaly)
+                    </button>
+                </form>
+                
+                <a href="{% url 'expenses:expense_edit' expense.id %}" 
+                   class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded ml-auto">
+                    ✏️ Edit Expense
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

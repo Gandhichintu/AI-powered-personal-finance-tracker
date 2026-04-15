@@ -1,0 +1,234 @@
+<!-- templates/expenses/base.html -->
+{% load static %}
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>{% block title %}Finance Tracker{% endblock %}</title>
+
+  <!-- Tailwind CDN for quick styling (good for dev) -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="{% static 'js/speech.js' %}"></script>
+</head>
+<body class="bg-gray-100 min-h-screen">
+ <nav class="bg-white shadow">
+  <div class="container mx-auto px-4 py-4 flex justify-between items-center">
+    
+    <!-- Logo - Link to landing page -->
+    <a href="{% url 'home' %}" class="font-bold text-lg">
+      FinanceTracker
+    </a>
+
+    {% if user.is_authenticated %}
+    <!-- Right Side -->
+    <div class="flex items-center space-x-6">
+
+      <a href="{% url 'expenses:voice_test' %}" class="relative group">
+        <svg class="w-6 h-6 text-gray-600 hover:text-purple-600 transition" 
+             fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m-4-4h8M8 7a4 4 0 108 0 4 4 0 00-8 0z"/>
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                d="M12 19v4m0 0h4m-4 0H8"/>
+        </svg>
+        <span class="absolute -top-1 -right-1 w-2 h-2 bg-purple-500 rounded-full animate-pulse"></span>
+        <div class="absolute hidden group-hover:block bg-gray-800 text-white text-xs rounded py-1 px-2 -bottom-8 left-1/2 transform -translate-x-1/2 whitespace-nowrap">
+          Voice Input
+        </div>
+      </a>
+
+      <!-- Notification Bell -->
+      <a href="{% url 'reminders:notifications' %}" class="relative">
+        <svg class="w-6 h-6 text-gray-600 hover:text-blue-600"
+             fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11
+                   a6.002 6.002 0 00-4-5.659V5
+                   a2 2 0 10-4 0v.341
+                   C7.67 6.165 6 8.388 6 11v3.159
+                   c0 .538-.214 1.055-.595 1.436L4 17h5m6 0
+                   v1a3 3 0 11-6 0v-1m6 0H9"/>
+        </svg>
+
+        {% if pending_reminders_count > 0 %}
+        <span class="absolute -top-1 -right-1 bg-red-500 text-white text-xs
+                     rounded-full h-5 w-5 flex items-center justify-center">
+          {{ pending_reminders_count }}
+        </span>
+        {% endif %}
+      </a>
+      
+      <!-- User Dropdown Menu -->
+      <div class="relative">
+        <button onclick="toggleUserMenu()" class="flex items-center space-x-2 focus:outline-none hover:bg-gray-50 px-2 py-1 rounded-lg transition">
+          <div class="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-white font-semibold">
+            {{ user.username|first|upper }}
+          </div>
+          <span class="text-gray-700 font-medium">{{ user.username }}</span>
+          <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+          </svg>
+        </button>
+        
+        <div id="userMenu" class="hidden absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-lg py-1 z-50 border">
+          <div class="px-4 py-2 border-b bg-gray-50">
+            <p class="text-sm font-semibold text-gray-700">{{ user.get_full_name|default:user.username }}</p>
+            <p class="text-xs text-gray-500">{{ user.email }}</p>
+          </div>
+          <a href="{% url 'expenses:dashboard' %}" class="block px-4 py-2 text-gray-700 hover:bg-gray-100 transition">
+            <span class="mr-2">📊</span> Dashboard
+          </a>
+          <a href="{% url 'accounts:profile' %}" class="block px-4 py-2 text-gray-700 hover:bg-gray-100">
+            <span class="mr-2">👤</span> My Profile
+          </a>
+          <a href="{% url 'expenses:expense_list' %}" class="block px-4 py-2 text-gray-700 hover:bg-gray-100 transition">
+            <span class="mr-2">💰</span> My Expenses
+          </a>
+          <a href="{% url 'expenses:analysis_dashboard' %}" class="block px-4 py-2 text-gray-700 hover:bg-gray-100 transition">
+            <span class="mr-2">📈</span> Analysis
+          </a>
+          <a href="{% url 'expenses:financial_health' %}" class="block px-4 py-2 text-gray-700 hover:bg-gray-100 transition">
+            <span class="mr-2">💪</span> Financial Health
+          </a>
+          <a href="{% url 'expenses:prediction_dashboard' %}" class="block px-4 py-2 text-gray-700 hover:bg-gray-100 transition">
+            <span class="mr-2">🔮</span> Predictions
+          </a>
+          <a href="{% url 'expenses:anomaly_dashboard' %}" class="block px-4 py-2 text-gray-700 hover:bg-gray-100 transition">
+            <span class="mr-2">🚨</span> Anomalies
+          </a>
+          <div class="border-t my-1"></div>
+          <a href="{% url 'goals:goals_dashboard' %}" class="block px-4 py-2 text-gray-700 hover:bg-gray-100 transition">
+            <span class="mr-2">🎯</span> Goals
+          </a>
+          <a href="{% url 'groups:group_list' %}" class="block px-4 py-2 text-gray-700 hover:bg-gray-100 transition">
+            <span class="mr-2">👥</span> Groups
+          </a>
+          <a href="{% url 'recurring:dashboard' %}" class="block px-4 py-2 text-gray-700 hover:bg-gray-100 transition">
+            <span class="mr-2">🔄</span> Recurring
+          </a>
+          <a href="{% url 'expenses:receipt_list' %}" class="block px-4 py-2 text-gray-700 hover:bg-gray-100 transition">
+            <span class="mr-2">📸</span> Receipts
+          </a>
+          <div class="border-t my-1"></div>
+          <form method="post" action="{% url 'logout' %}" class="block">
+            {% csrf_token %}
+            <button type="submit" class="w-full text-left px-4 py-2 text-red-600 hover:bg-gray-100">
+              🚪 Logout
+            </button>
+          </form>
+        </div>
+      </div>
+      
+      <!-- Nav Links (Desktop Navigation) -->
+      <div class="hidden lg:flex items-center space-x-4 text-gray-700">
+        <a href="{% url 'expenses:dashboard' %}" class="hover:text-blue-600">Dashboard</a>
+        <a href="{% url 'expenses:expense_list' %}" class="hover:text-blue-600">Expenses</a>
+        <a href="{% url 'expenses:receipt_list' %}" class="hover:text-blue-600">Receipts</a>
+        <a href="{% url 'groups:group_list' %}" class="hover:text-blue-600">Groups</a>
+        <a href="{% url 'goals:goals_dashboard' %}" class="hover:text-blue-600">Goals</a>
+        <a href="{% url 'recurring:dashboard' %}" class="hover:text-blue-600">Recurring</a>
+        <a href="{% url 'expenses:analysis_dashboard' %}" class="hover:text-blue-600 {% if request.path == '/analysis/' %}text-blue-600 font-semibold{% endif %}">
+          📊 Analysis
+        </a>
+        <a href="{% url 'expenses:financial_health' %}" class="hover:text-blue-600">💪 Health</a>
+        <a href="{% url 'expenses:prediction_dashboard' %}" class="hover:text-blue-600">🔮 Predictions</a>
+        <a href="{% url 'expenses:anomaly_dashboard' %}" class="hover:text-blue-600">🚨 Anomalies</a>
+      </div>
+
+    </div>
+    {% else %}
+    <div class="flex items-center space-x-3">
+      <a href="{% url 'login' %}" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition">
+        Login
+      </a>
+      <a href="{% url 'accounts:register' %}" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition">
+    Register
+</a>
+    </div>
+    {% endif %}
+  </div>
+</nav>
+
+<main class="container mx-auto px-4 py-6">
+  {% if messages %}
+  <div class="mb-4">
+    {% for message in messages %}
+    <div class="p-4 rounded-lg {% if message.tags == 'success' %}bg-green-100 text-green-700 border border-green-200{% elif message.tags == 'error' %}bg-red-100 text-red-700 border border-red-200{% elif message.tags == 'warning' %}bg-yellow-100 text-yellow-700 border border-yellow-200{% else %}bg-blue-100 text-blue-700 border border-blue-200{% endif %}">
+      {{ message }}
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+  
+  {% block content %}{% endblock %}
+</main>
+
+<script>
+function toggleUserMenu() {
+    const menu = document.getElementById('userMenu');
+    if (menu) {
+        menu.classList.toggle('hidden');
+    }
+}
+
+// Close menu when clicking outside
+document.addEventListener('click', function(event) {
+    const menu = document.getElementById('userMenu');
+    const button = event.target.closest('button');
+    
+    // If clicking outside the menu button and the menu is open, close it
+    if (menu && !menu.classList.contains('hidden')) {
+        // Check if click is inside the menu or on the button that toggles it
+        const isClickInsideMenu = menu.contains(event.target);
+        const isClickOnButton = button && button.onclick && button.onclick.toString().includes('toggleUserMenu');
+        
+        if (!isClickInsideMenu && !isClickOnButton) {
+            menu.classList.add('hidden');
+        }
+    }
+});
+
+// Prevent menu from closing when clicking inside it
+document.addEventListener('DOMContentLoaded', function() {
+    const menu = document.getElementById('userMenu');
+    if (menu) {
+        menu.addEventListener('click', function(event) {
+            event.stopPropagation();
+        });
+    }
+});
+</script>
+
+<style>
+/* Smooth transitions */
+.transition {
+    transition: all 0.2s ease;
+}
+
+/* Custom scrollbar for dropdown */
+#userMenu {
+    max-height: 80vh;
+    overflow-y: auto;
+}
+
+#userMenu::-webkit-scrollbar {
+    width: 6px;
+}
+
+#userMenu::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 3px;
+}
+
+#userMenu::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 3px;
+}
+
+#userMenu::-webkit-scrollbar-thumb:hover {
+    background: #555;
+}
+</style>
+</body>
+</html>
